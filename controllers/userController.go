@@ -74,7 +74,8 @@ func SignUp() gin.HandlerFunc {
 			return
 		}
 
-		user.Friends = []primitive.ObjectID{}
+		user.Follower = []primitive.ObjectID{}
+		user.Following = []primitive.ObjectID{}
 		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
@@ -84,6 +85,7 @@ func SignUp() gin.HandlerFunc {
 		user.Refresh_token = refreshToken
 
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
+
 		if insertErr != nil {
 			msg := fmt.Sprintf("User item was not created")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
@@ -102,6 +104,7 @@ func Login() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		var user model.User
 		var foundUser model.User
+		defer cancel()
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -109,9 +112,8 @@ func Login() gin.HandlerFunc {
 		}
 
 		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-		defer cancel()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "login or passowrd is incorrect"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "login or password is incorrect"})
 			return
 		}
 
@@ -128,5 +130,29 @@ func Login() gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, foundUser)
 
+	}
+}
+
+func GetAllUsers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var allUser []model.User
+		defer cancel()
+
+		cursor, err := userCollection.Find(ctx, bson.M{})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer cursor.Close(ctx)
+		for cursor.Next(ctx) {
+			var user model.User
+			if err = cursor.Decode(&user); err != nil {
+				log.Fatal(err)
+			}
+			allUser = append(allUser, user)
+		}
+
+		c.JSON(http.StatusOK, allUser)
 	}
 }

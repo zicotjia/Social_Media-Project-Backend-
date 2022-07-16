@@ -89,16 +89,42 @@ func GetAllPost() gin.HandlerFunc {
 }
 
 type LikeRequest struct {
-	UserID primitive.ObjectID `json:"_userid"`
-	PostID primitive.ObjectID `json:"_postid"`
+	UserId   primitive.ObjectID `json:"_userid"`
+	Username string             `json:"username"`
+	PostId   primitive.ObjectID `json:"_postid"`
 }
 
 func LikePost() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LikeRequest
-		var post model.Post
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		var newLike model.Like
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		newLike.UserId = req.UserId
+		newLike.Username = req.Username
+		newLike.Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		filter := bson.M{"_id": req.PostId}
+		update := bson.M{"$push": bson.M{"likes": newLike}}
+
+		_, err := postCollection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+	}
+}
+
+func UnlikePost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req LikeRequest
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		fmt.Println("liked")
@@ -108,21 +134,10 @@ func LikePost() gin.HandlerFunc {
 			return
 		}
 
-		fmt.Println(req.PostID)
-		fmt.Println(req.UserID)
-		newLike.User = req.UserID
-		newLike.Date, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		filter := bson.M{"_id": req.PostID}
-		update := bson.M{"$push": bson.M{"likes": newLike}}
+		filter := bson.M{"_id": req.PostId}
+		update := bson.M{"$pull": bson.M{"likes": bson.M{"user": req.UserId}}}
 
-		err := postCollection.FindOne(ctx, bson.M{"_id": req.PostID}).Decode(&post)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-
-		fmt.Println(post)
-		_, err = postCollection.UpdateOne(ctx, filter, update)
+		_, err := postCollection.UpdateOne(ctx, filter, update)
 		if err != nil {
 			log.Fatal(err)
 			return

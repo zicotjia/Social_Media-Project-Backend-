@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"backend/cloudinary"
 	"backend/database"
 	helper "backend/helpers"
 	"backend/model"
@@ -17,7 +18,8 @@ import (
 	"time"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var UserCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+
 var validate = validator.New()
 
 func HashPassword(password string) string {
@@ -46,6 +48,7 @@ func SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		var user model.User
+		defer cancel()
 
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -58,10 +61,9 @@ func SignUp() gin.HandlerFunc {
 			return
 		}
 
-		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+		count, err := UserCollection.CountDocuments(ctx, bson.M{"email": user.Email})
 		defer cancel()
 		if err != nil {
-			log.Panic(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occured while checking for the email"})
 			return
 		}
@@ -84,7 +86,7 @@ func SignUp() gin.HandlerFunc {
 		user.Token = token
 		user.Refresh_token = refreshToken
 
-		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
+		resultInsertionNumber, insertErr := UserCollection.InsertOne(ctx, user)
 
 		if insertErr != nil {
 			msg := fmt.Sprintf("User item was not created")
@@ -111,7 +113,7 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+		err := UserCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "login or password is incorrect"})
 			return
@@ -139,12 +141,11 @@ func GetAllUsers() gin.HandlerFunc {
 		var allUser []model.User
 		defer cancel()
 
-		cursor, err := userCollection.Find(ctx, bson.M{})
+		cursor, err := UserCollection.Find(ctx, bson.M{})
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		defer cursor.Close(ctx)
 		for cursor.Next(ctx) {
 			var user model.User
 			if err = cursor.Decode(&user); err != nil {
@@ -153,6 +154,161 @@ func GetAllUsers() gin.HandlerFunc {
 			allUser = append(allUser, user)
 		}
 
+		if err = cursor.Close(ctx); err != nil {
+			log.Fatal(err)
+		}
 		c.JSON(http.StatusOK, allUser)
+	}
+}
+
+type FollowRequest struct {
+	Follower  primitive.ObjectID `json:"follower"`
+	Following primitive.ObjectID `json:"following"`
+}
+
+func FollowUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var req FollowRequest
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(req)
+
+		filter1 := bson.M{"_id": req.Follower}
+		update1 := bson.M{"$push": bson.M{"following": req.Following}}
+
+		filter2 := bson.M{"_id": req.Following}
+		update2 := bson.M{"$push": bson.M{"follower": req.Follower}}
+
+		_, err := UserCollection.UpdateOne(ctx, filter1, update1)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		_, err = UserCollection.UpdateOne(ctx, filter2, update2)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+	}
+}
+
+func UnFollowUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var req FollowRequest
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			log.Fatal(err)
+		}
+
+		filter1 := bson.M{"_id": req.Follower}
+		update1 := bson.M{"$pull": bson.M{"following": req.Following}}
+
+		filter2 := bson.M{"_id": req.Following}
+		update2 := bson.M{"$pull": bson.M{"following": req.Follower}}
+
+		_, err := UserCollection.UpdateOne(ctx, filter1, update1)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		_, err = UserCollection.UpdateOne(ctx, filter2, update2)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+	}
+}
+
+type ProfileChangeRequest struct {
+	UserId primitive.ObjectID `json:"user_id"`
+	Bio    string             `json:"bio"`
+}
+
+func EditUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		var newProfile ProfileChangeRequest
+		var updatedUser model.User
+		defer cancel()
+
+		if err := c.BindJSON(&newProfile); err != nil {
+			log.Fatal(err)
+		}
+
+		filter := bson.M{"_id": newProfile.UserId}
+		update := bson.M{"$set": bson.M{"bio": newProfile.Bio}}
+		_, err := UserCollection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		err = UserCollection.FindOne(ctx, bson.M{"_id": newProfile.UserId}).Decode(&updatedUser)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		c.JSON(http.StatusOK, updatedUser)
+	}
+}
+
+type ProfilePicChangeRequest struct {
+	UserId        primitive.ObjectID `json:"user_id"`
+	ProfilePicUrl string             `json:"profilepicurl"`
+}
+
+func EditProfilePic() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		var req ProfilePicChangeRequest
+		var updatedUser model.User
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		cloudinaryURl := make(chan string)
+		go cloudinary.CloudinaryUpload(req.ProfilePicUrl, cloudinaryURl)
+		req.ProfilePicUrl = <-cloudinaryURl
+
+		filter := bson.M{"_id": req.UserId}
+		update := bson.M{"$set": bson.M{"profilepicurl": req.ProfilePicUrl}}
+
+		_, err := UserCollection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			msg := fmt.Sprintf("Post item was not added")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		err = UserCollection.FindOne(ctx, bson.M{"_id": req.UserId}).Decode(&updatedUser)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		filter = bson.M{"user._id": req.UserId}
+		update = bson.M{"$set": bson.M{"user": updatedUser}}
+		_, err = PostCollection.UpdateMany(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		c.JSON(http.StatusOK, updatedUser)
+
 	}
 }

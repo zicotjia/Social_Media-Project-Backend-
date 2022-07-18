@@ -12,8 +12,8 @@ type User struct {
 	Last_name     string               `json:"last_name" validate:"required,min=2,max=100"`
 	Password      string               `json:"password,omitempty" validate:"required,min=8,max=100"`
 	Email         string               `json:"email"    validate:"required"`
-	Follower      []primitive.ObjectID `json:"Follower"`
-	Following     []primitive.ObjectID `json:"Following"`
+	Follower      []primitive.ObjectID `json:"follower"`
+	Following     []primitive.ObjectID `json:"following"`
 	ProfilePicUrl string               `json:"profilepicurl"`
 	Bio           string               `json:"bio"`
 	Created_at    time.Time            `json:"created_at"`

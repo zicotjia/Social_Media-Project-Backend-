@@ -6,29 +6,17 @@ import (
 	"backend/model"
 	"context"
 	"fmt"
-	"github.com/cloudinary/cloudinary-go/v2/api"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"time"
 )
 
-var postCollection *mongo.Collection = database.OpenCollection(database.Client, "post")
-
-func cloudinaryUpload(post model.Post, r chan string) {
-	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-
-	uploadParam, err := cloudinary.Cloudi.Upload.Upload(ctx, post.File, uploader.UploadParams{UseFilename: api.Bool(true)})
-	if err != nil {
-		log.Fatal(err)
-	}
-	r <- uploadParam.SecureURL
-}
+var PostCollection *mongo.Collection = database.OpenCollection(database.Client, "post")
 
 func FileUpload() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -43,14 +31,14 @@ func FileUpload() gin.HandlerFunc {
 		}
 
 		cloudinaryURl := make(chan string)
-		go cloudinaryUpload(post, cloudinaryURl)
+		go cloudinary.CloudinaryUpload(post.File, cloudinaryURl)
 		post.File = <-cloudinaryURl
 
 		post.Likes = []model.Like{}
 		post.Comments = []model.Comment{}
 		post.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		resultInsertionNumber, insertErr := postCollection.InsertOne(ctx, post)
+		resultInsertionNumber, insertErr := PostCollection.InsertOne(ctx, post)
 		if insertErr != nil {
 			msg := fmt.Sprintf("Post item was not added")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
@@ -69,7 +57,9 @@ func GetAllPost() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		cursor, err := postCollection.Find(ctx, bson.M{})
+		findOptions := options.Find()
+		findOptions.SetSort(bson.D{{"created_at", -1}})
+		cursor, err := PostCollection.Find(ctx, bson.M{}, findOptions)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -112,7 +102,7 @@ func LikePost() gin.HandlerFunc {
 		filter := bson.M{"_id": req.PostId}
 		update := bson.M{"$push": bson.M{"likes": newLike}}
 
-		_, err := postCollection.UpdateOne(ctx, filter, update)
+		_, err := PostCollection.UpdateOne(ctx, filter, update)
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -127,7 +117,7 @@ func UnlikePost() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
-		fmt.Println("liked")
+		fmt.Println("unliked")
 
 		if err := c.BindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -135,9 +125,9 @@ func UnlikePost() gin.HandlerFunc {
 		}
 
 		filter := bson.M{"_id": req.PostId}
-		update := bson.M{"$pull": bson.M{"likes": bson.M{"user": req.UserId}}}
+		update := bson.M{"$pull": bson.M{"likes": bson.M{"userid": req.UserId}}}
 
-		_, err := postCollection.UpdateOne(ctx, filter, update)
+		_, err := PostCollection.UpdateOne(ctx, filter, update)
 		if err != nil {
 			log.Fatal(err)
 			return

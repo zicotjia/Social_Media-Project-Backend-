@@ -5,6 +5,7 @@ import (
 	routes "backend/router"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"os"
 )
 
@@ -30,9 +31,8 @@ func main() {
 	router.GET("/api-2", func(c *gin.Context) {
 		c.JSON(200, gin.H{"success": "Access granted for api-2"})
 	})
-	router.Run(":" + port)
 
-	//log.Fatal(http.ListenAndServe(":8080", r))
+	http.ListenAndServe(":"+port, router)
 }
 
 //{

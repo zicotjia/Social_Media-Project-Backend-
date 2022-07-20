@@ -5,7 +5,6 @@ import (
 	routes "backend/router"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"os"
 )
 
@@ -32,13 +31,5 @@ func main() {
 		c.JSON(200, gin.H{"success": "Access granted for api-2"})
 	})
 
-	http.ListenAndServe(":"+port, router)
+	r.Run(":" + port)
 }
-
-//{
-//"first_name" : "Zico",
-//"last_name" : "Tjia",
-//"username": "TjiaZico",
-//"email": "zicotjia@gmail.com",
-//"password": "france123"
-//}

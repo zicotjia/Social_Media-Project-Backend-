@@ -3,7 +3,6 @@ package main
 import (
 	"backend/middleware"
 	routes "backend/router"
-	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"os"
@@ -11,10 +10,6 @@ import (
 
 func main() {
 	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = "8000"
-	}
 
 	router := gin.New()
 	router.Use(gin.Logger())
@@ -35,9 +30,8 @@ func main() {
 	router.GET("/api-2", func(c *gin.Context) {
 		c.JSON(200, gin.H{"success": "Access granted for api-2"})
 	})
-
-	fmt.Println("Starting server on the port 8080")
 	router.Run(":" + port)
+
 	//log.Fatal(http.ListenAndServe(":8080", r))
 }
 

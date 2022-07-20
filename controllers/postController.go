@@ -20,7 +20,6 @@ var PostCollection *mongo.Collection = database.OpenCollection(database.Client, 
 
 func FileUpload() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		var post model.Post
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
@@ -52,7 +51,6 @@ func FileUpload() gin.HandlerFunc {
 
 func GetAllPost() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		var posts []model.Post
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
@@ -131,6 +129,57 @@ func UnlikePost() gin.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 			return
+		}
+
+	}
+}
+
+type EditPostRequest struct {
+	PostId      primitive.ObjectID `json:'postid'`
+	Description string             `json:'description'`
+}
+
+func EditPost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req EditPostRequest
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		filter := bson.M{"_id": req.PostId}
+		update := bson.M{"$set": bson.M{"description": req.Description}}
+
+		_, err := PostCollection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+type DeletePostRequest struct {
+	PostId primitive.ObjectID `json:'postid'`
+}
+
+func DeletePost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req DeletePostRequest
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		filter := bson.M{"_id": req.PostId}
+
+		_, err := PostCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			log.Fatal(err)
 		}
 
 	}

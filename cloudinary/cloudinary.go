@@ -5,12 +5,21 @@ import (
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/joho/godotenv"
 	"log"
+	"os"
 	"time"
 )
 
 func inititiateCloudinary() *cloudinary.Cloudinary {
-	cld, _ := cloudinary.NewFromParams("dp6h9unkh", "563879417284723", "ZUg0U1wALRKczaE3aD28WIdt8WY")
+
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	cld, _ := cloudinary.NewFromParams(os.Getenv("CLOUD"), os.Getenv("KEY"), os.Getenv("SECRET"))
 
 	return cld
 }

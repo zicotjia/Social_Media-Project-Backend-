@@ -269,7 +269,6 @@ type ProfilePicChangeRequest struct {
 
 func EditProfilePic() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		var req ProfilePicChangeRequest
 		var updatedUser model.User
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
@@ -309,6 +308,35 @@ func EditProfilePic() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, updatedUser)
+	}
+}
 
+type DeleteUserRequest struct {
+	UserId primitive.ObjectID `json:"userid"`
+}
+
+func DeleteUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req DeleteUserRequest
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		if err := c.BindJSON(&req); err != nil {
+			log.Fatal(err)
+		}
+
+		filter := bson.M{"_id": req.UserId}
+
+		_, err := UserCollection.DeleteOne(ctx, filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		filter = bson.M{"user._id": req.UserId}
+
+		_, err = PostCollection.DeleteMany(ctx, filter)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

@@ -3,7 +3,10 @@ package database
 import (
 	"context"
 	"fmt"
+	"github.com/joho/godotenv"
+	_ "github.com/joho/godotenv/autoload"
 	"log"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,7 +15,14 @@ import (
 
 func initiateConnection() *mongo.Client {
 
-	var uri = "mongodb+srv://123456:123456zico@cluster0.sbbtypy.mongodb.net/?retryWrites=true&w=majority"
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	var uri = os.Getenv("URI")
+	fmt.Println(uri)
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri))
 	if err != nil {

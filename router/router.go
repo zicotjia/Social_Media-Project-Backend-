@@ -13,11 +13,14 @@ func UserRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.PATCH("/users/unfollow", controller.UnFollowUser())
 	incomingRoutes.PATCH("/users/edit", controller.EditUser())
 	incomingRoutes.PATCH("/users/editpic", controller.EditProfilePic())
+	incomingRoutes.DELETE("/users/delete", controller.DeleteUser())
 }
 
 func PostRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.POST("/post/addpost", controller.FileUpload())
 	incomingRoutes.GET("/post/getpost", controller.GetAllPost())
+	incomingRoutes.PATCH("/post/edit", controller.EditPost())
+	incomingRoutes.DELETE("/post/delete", controller.DeletePost())
 }
 
 func LikeRoutes(incomingRoutes *gin.Engine) {

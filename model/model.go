@@ -46,5 +46,3 @@ type Like struct {
 	Username string             `json:"username"`
 	Date     time.Time          `json:"date" validate:"required"`
 }
-
-//"62b07dc97c5bbfdd83d27dc6"
